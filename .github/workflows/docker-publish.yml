@@ -75,6 +75,9 @@ jobs:
           labels: ${{ steps.meta-ghcr.outputs.labels }}
           extra-args: |
             --secret=id=entitlement,src=./entitlement
+          build-args: |
+            REDHAT_ORG_ID=${{ secrets.REDHAT_ORG_ID }}
+            REDHAT_ACTIVATION_KEY=${{ secrets.REDHAT_ACTIVATION_KEY }}
           containerfiles: |
             ./Dockerfile
 
