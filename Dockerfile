@@ -8,7 +8,7 @@ ARG REDHAT_ACTIVATION_KEY
 
 #crazy entitlement system https://access.redhat.com/solutions/3341191
 RUN --mount=type=secret,id=entitlement subscription-manager import --certificate=/run/secrets/entitlement && \
-    subscription-manager register --auto-attach --org=${REDHAT_ORG_ID} --activationkey=${REDHAT_ACTIVATION_KEY} --name GithubActions && \
+    subscription-manager register --org=${REDHAT_ORG_ID} --activationkey=${REDHAT_ACTIVATION_KEY} --name GithubActions && \
     dnf install -y iputils iproute nftables wireguard-tools --enablerepo=rhel-9-for-x86_64-baseos-rpms --enablerepo=rhel-9-for-x86_64-appstream-rpms && \
     subscription-manager remove --all && subscription-manager unregister && subscription-manager clean && \
     chown 1001:0 /etc/wireguard && chmod g+rwx -R /etc/wireguard && \
