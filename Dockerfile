@@ -1,5 +1,6 @@
 FROM registry.redhat.io/ubi9/ubi-init:latest
 
+
 # broken subscription manager in container since ubi9
 # https://access.redhat.com/discussions/5889431
 ARG SMDEV_CONTAINER_OFF=1
@@ -15,4 +16,13 @@ RUN --mount=type=secret,id=entitlement subscription-manager import --certificate
     systemctl enable systemd-resolved && \
     systemctl enable wg-quick@wg0
 
-CMD [ "/sbin/init" ]
+ADD --chmod=770 --chown=1001:0 ./init /init
+ADD --chmod=770 --chown=1001:0 ./postUp /etc/wireguard/postUp
+
+ENV IPV4_ADDRESS \
+    DNS \
+    VPN_PEER_HOST \
+    VPN_PEER_PORT
+
+
+CMD [ "/init" ]

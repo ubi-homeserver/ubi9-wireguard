@@ -1,0 +1,73 @@
+#!/bin/bash -ex
+catch(){
+  echo kill -37 1
+}
+trap catch ERR
+ip2int()
+{
+    local a b c d
+    { IFS=. read a b c d; } <<< $1
+    echo $(((((((a << 8) | b) << 8) | c) << 8) | d))
+}
+
+inet(){
+  ip -f inet addr show $1 | awk '/inet / {print $2}'
+}
+int2ip()
+{
+    local ui32=$1
+    local ip n
+    for n in 1 2 3 4; do
+        ip=$((ui32 & 0xff))${ip:+.}$ip
+        ui32=$((ui32 >> 8))
+    done
+    echo $ip
+}
+
+network()
+# Example: network 192.0.2.0/24 => 192.0.2.0
+{
+    local ip=${1%%/*}
+    local sub=${1##*/}
+    local addr=$(ip2int $ip)
+    local mask=$((0xffffffff << (32 - ${sub:-24})))
+    int2ip $((addr & mask))
+}
+
+# 10.89.0.1
+GWADDR=$(ip route | grep default | awk '{print $3}')
+# 192.168.1.0/24,10.88.0.0/24
+HOMENETS=${HOMENETS:-192.168.1.0/24,10.88.0.0/24}
+# 10.89.0.254/24
+ETH0ADDR=$(inet eth0)
+# 10.2.0.2/32
+WG0ADDR=$(inet wg0)
+
+nft add table nat
+nft add chain nat prerouting { type nat hook prerouting priority 0 \; }
+nft add chain nat postrouting { type nat hook postrouting priority 100 \; }
+nft add rule nat postrouting masquerade
+
+THIS_NETWORK=$(network $ETH0ADDR)
+
+VPN_PEER_HOST=$(cat /etc/wireguard/host)
+if [ -z "$VPN_PEER_HOST" ]; then
+  echo Missing env VPN_PEER_HOST
+  kill -37 1
+  exit 1
+fi
+
+for INET in ${HOMENETS//,/$IFS}
+do
+    NETWORK=$(network $INET)
+    if [ "$NETWORK" != "$THIS_NETWORK" ]; then
+      #only add routes for addresses out of this network
+      ip route add $INET via $GWADDR
+    fi
+    nft add rule nat postrouting ip saddr $NETWORK oifname wg0 snat $WG0ADDR
+done
+
+nft add rule nat postrouting masquerade
+ip route del default
+ip route add $VPN_PEER_HOST via $GWADDR
+ip route add default via $(network $WG0IADDR) dev wg0
